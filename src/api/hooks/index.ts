@@ -9,3 +9,6 @@ export * from "./useLogout";
 export * from "./useUserProfile";
 export * from "./useUpdateProfile";
 export * from "./useUsers";
+export * from "./useOptimizeSqlQuery";
+export * from "./useTestDbConnection";
+export * from "./useSqlOptimizerUsage";

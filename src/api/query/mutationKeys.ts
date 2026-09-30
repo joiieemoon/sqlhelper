@@ -23,3 +23,13 @@ export const USER_MUTATION_KEYS = {
   UPDATE: () => [...USER_MUTATION_KEYS.ALL, "update"] as const,
   DELETE: () => [...USER_MUTATION_KEYS.ALL, "delete"] as const,
 } as const;
+
+/**
+ * Mutation key factory for the SQL query optimizer.
+ */
+export const SQL_OPTIMIZER_MUTATION_KEYS = {
+  ALL: ["sql-optimizer"] as const,
+  OPTIMIZE: () => [...SQL_OPTIMIZER_MUTATION_KEYS.ALL, "optimize"] as const,
+  TEST_CONNECTION: () =>
+    [...SQL_OPTIMIZER_MUTATION_KEYS.ALL, "test-connection"] as const,
+} as const;

@@ -1,11 +1,54 @@
+import { useCallback } from "react";
 import { useTheme } from "../../../context/ThemeContext";
 
 export const ThemeToggleButton: React.FC = () => {
   const { toggleTheme } = useTheme();
 
+  /**
+   * Toggle the theme inside a View Transition so the new theme ripples out
+   * from the button as a smooth expanding wave. Falls back to an instant
+   * switch when the browser does not support the View Transitions API.
+   */
+  const handleToggle = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      const doc = document as Document & {
+        startViewTransition?: (callback: () => void) => unknown;
+      };
+
+      // No View Transitions support (or reduced motion) → plain toggle.
+      const reducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      if (typeof doc.startViewTransition !== "function" || reducedMotion) {
+        toggleTheme();
+        return;
+      }
+
+      // Compute the wave origin (button centre) and radius up front — the
+      // DOM is snapshotted before the callback runs.
+      const rect = event.currentTarget.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      const radius = Math.hypot(
+        Math.max(x, window.innerWidth - x),
+        Math.max(y, window.innerHeight - y),
+      );
+
+      doc.startViewTransition(() => {
+        const root = document.documentElement;
+        root.style.setProperty("--theme-wave-x", `${x}px`);
+        root.style.setProperty("--theme-wave-y", `${y}px`);
+        root.style.setProperty("--theme-wave-r", `${radius}px`);
+        toggleTheme();
+      });
+    },
+    [toggleTheme],
+  );
+
   return (
     <button
-      onClick={toggleTheme}
+      onClick={handleToggle}
+      aria-label="Toggle color theme"
       className="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full hover:text-dark-900 h-11 w-11 hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
     >
       <svg

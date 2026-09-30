@@ -43,3 +43,11 @@ export const ROLE_QUERY_KEYS = {
   ALL: ["roles"] as const,
   LIST: () => [...ROLE_QUERY_KEYS.ALL, "list"] as const,
 } as const;
+
+/**
+ * Query key factory for the SQL query optimizer.
+ */
+export const SQL_OPTIMIZER_QUERY_KEYS = {
+  ALL: ["sql-optimizer"] as const,
+  USAGE: () => [...SQL_OPTIMIZER_QUERY_KEYS.ALL, "usage"] as const,
+} as const;

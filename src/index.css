@@ -8,6 +8,8 @@ layer(base);
 @theme {
   --font-*: initial;
   --font-outfit: Outfit, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 
   --breakpoint-*: initial;
   --breakpoint-2xsm: 375px;
@@ -790,3 +792,50 @@ span.flatpickr-weekday,
 .simplebar-scrollbar.simplebar-visible:before {
   @apply opacity-100;
 }
+
+/* ==========================================================================
+   Theme toggle wave transition (View Transitions API)
+   When the theme button is clicked, the new theme colors ripple outward
+   from the button position as an expanding circle. The button sets
+   --theme-wave-x / --theme-wave-y / --theme-wave-r before the transition.
+   Browsers without View Transitions support fall back to an instant switch.
+   ========================================================================== */
+:root {
+  --theme-wave-x: 50%;
+  --theme-wave-y: 50%;
+  --theme-wave-r: 100vmax;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* New theme snapshot on top, revealed by the expanding wave. */
+::view-transition-new(root) {
+  animation: theme-wave-expand 600ms ease-in-out;
+  z-index: 1;
+}
+
+::view-transition-old(root) {
+  z-index: 0;
+}
+
+@keyframes theme-wave-expand {
+  from {
+    clip-path: circle(0px at var(--theme-wave-x) var(--theme-wave-y));
+  }
+  to {
+    clip-path: circle(var(--theme-wave-r) at var(--theme-wave-x) var(--theme-wave-y));
+  }
+}
+
+/* Respect users who prefer reduced motion — no wave, plain switch. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+}
+

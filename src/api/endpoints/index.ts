@@ -5,3 +5,4 @@
 
 export * from "./auth.endpoint";
 export * from "./user.endpoint";
+export * from "./sql-optimizer.endpoint";
