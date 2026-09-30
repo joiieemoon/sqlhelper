@@ -1,7 +1,15 @@
 /**
  * Optimization result cards.
- * Renders the optimizer summary and the optimized query, and only shows
- * recommendation sections that actually contain entries.
+ *
+ * Three separate concerns, each in its own card:
+ * - Summary          — what the optimizer says it changed (the existing narrative),
+ * - Analysis & Explanation — per-action detail, including the EXPLAIN evidence
+ *   behind each rewrite,
+ * - Report           — run metadata, action outcomes and the original EXPLAIN plan.
+ *
+ * The "Actions" list is intentionally NOT repeated inside Summary any more: it
+ * duplicated the Analysis section. Index recommendations stay in Summary since
+ * they are DDL the user still has to run themselves.
  */
 
 import { useCallback } from "react";
@@ -11,6 +19,8 @@ import Button from "../../../../components/ui/button/Button";
 import { CopyIcon } from "../../../../icons";
 import { copyToClipboard } from "../../../../utils/helpers";
 import type { OptimizeQueryResponse } from "../../../../api/types";
+import ActionAnalysisList from "./ActionAnalysisList";
+import OptimizationReport from "./OptimizationReport";
 
 const NO_CHANGES_MESSAGE =
   "No optimization changes were identified for this query.";
@@ -44,6 +54,11 @@ interface OptimizationResultProps {
 
 const OptimizationResult: React.FC<OptimizationResultProps> = ({ result }) => {
   const lines = result.optimized_query.split("\n");
+  const actionDetails = result.actionDetails ?? [];
+  // Older/simpler responses only return the flattened action strings, so fall
+  // back to them rather than dropping the section entirely.
+  const hasAnalysis =
+    actionDetails.length > 0 || result.actions.length > 0;
 
   const handleCopy = useCallback(async () => {
     const copied = await copyToClipboard(result.optimized_query);
@@ -69,16 +84,32 @@ const OptimizationResult: React.FC<OptimizationResultProps> = ({ result }) => {
           </p>
         )}
 
-        {result.actions.length > 0 && (
-          <RecommendationList title="Actions" items={result.actions} />
-        )}
-
         {result.index_recommendations.length > 0 && (
           <RecommendationList
             title="Index Recommendations"
             items={result.index_recommendations}
           />
         )}
+      </ComponentCard>
+
+      {hasAnalysis && (
+        <ComponentCard
+          title="Analysis & Explanation"
+          desc="Why each change was made, based on the live query plan."
+        >
+          {actionDetails.length > 0 ? (
+            <ActionAnalysisList actions={actionDetails} />
+          ) : (
+            <RecommendationList title="Actions" items={result.actions} />
+          )}
+        </ComponentCard>
+      )}
+
+      <ComponentCard
+        title="Report"
+        desc="How this optimization ran, and the plan it was based on."
+      >
+        <OptimizationReport result={result} />
       </ComponentCard>
 
       <ComponentCard title="Optimized Query">

@@ -19,7 +19,11 @@ import {
 } from "../types";
 import { API_CONFIG } from "../../config/api.config";
 import storage from "../../utils/storage";
-import { coerceOptimizerDisplayList } from "../utils/optimizer-response-format";
+import {
+  coerceOptimizerActionList,
+  coerceOptimizerDisplayList,
+  coerceOptimizerExplain,
+} from "../utils/optimizer-response-format";
 
 const DEVICE_ID_STORAGE_KEY = "sql-optimizer-device-id";
 
@@ -164,11 +168,30 @@ function normalizeOptimizeResponse(
   const resetsIn =
     typeof data.resets_in === "number" ? data.resets_in : undefined;
 
+  // Structured form of `actions` — kept alongside the flattened strings because
+  // the "Analysis & Explanation" section needs type / priority / before / after
+  // / DDL, which the flattened "TYPE: reason" form discards.
+  const actionDetails = coerceOptimizerActionList(data.actions);
+  const explain = coerceOptimizerExplain(data.explain);
+  const appliedActions = Array.isArray(data.applied_actions)
+    ? data.applied_actions.filter((id): id is number => typeof id === "number")
+    : undefined;
+  const rewriteActions = Array.isArray(data.rewrite_actions)
+    ? data.rewrite_actions.filter((id): id is number => typeof id === "number")
+    : undefined;
+  const noOpActions = Array.isArray(data.no_op_actions)
+    ? data.no_op_actions.filter((id): id is number => typeof id === "number")
+    : undefined;
+  const skippedActions = Array.isArray(data.skipped_actions)
+    ? data.skipped_actions.filter((id): id is number => typeof id === "number")
+    : undefined;
+
   return {
     success: data.success === true,
     optimized_query:
       typeof data.optimized_query === "string" ? data.optimized_query : "",
     actions: coerceOptimizerDisplayList(data.actions),
+    actionDetails: actionDetails.length > 0 ? actionDetails : undefined,
     index_recommendations: coerceOptimizerDisplayList(
       data.index_recommendations,
     ),
@@ -199,6 +222,18 @@ function normalizeOptimizeResponse(
     resets_in: resetsIn,
     elapsed_ms:
       typeof data.elapsed_ms === "number" ? data.elapsed_ms : undefined,
+    engine: typeof data.engine === "string" ? data.engine : undefined,
+    database: typeof data.database === "string" ? data.database : undefined,
+    query_changed:
+      typeof data.query_changed === "boolean" ? data.query_changed : undefined,
+    explain,
+    applied_actions: appliedActions,
+    rewrite_actions: rewriteActions,
+    no_op_actions: noOpActions,
+    skipped_actions: skippedActions,
+    rewriter_warnings: Array.isArray(data.rewriter_warnings)
+      ? coerceOptimizerDisplayList(data.rewriter_warnings)
+      : undefined,
   };
 }
 
