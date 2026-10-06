@@ -1,0 +1,1 @@
+{"query": "SELECT * FROM customers WHERE country='USA'", "agent_version": 1, "db_schema": "customers(id INT, name TEXT, country TEXT)", "schema_type": "MySQL"}

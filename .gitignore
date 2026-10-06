@@ -1,0 +1,102 @@
+# ══════════════════════════════════════════════════════════════
+#  SECRETS & CREDENTIALS  —  NEVER COMMIT
+# ══════════════════════════════════════════════════════════════
+
+# Environment files (contain GROQ_API_KEY and LLM config)
+.env
+.env.*
+*.env
+env
+
+# Template is allowed
+!.env.example
+
+# Google Cloud / Vertex AI service-account private keys
+fish-store-488312-4164e0ad13ad.json
+fish-store-*.json
+*service*account*.json
+*-sa-*.json
+*sa-key*.json
+*credentials*.json
+
+# Any other key material
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+
+# ══════════════════════════════════════════════════════════════
+#  PYTHON
+# ══════════════════════════════════════════════════════════════
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# ══════════════════════════════════════════════════════════════
+#  NODE
+# ══════════════════════════════════════════════════════════════
+node_modules/
+package-lock.json
+
+# ══════════════════════════════════════════════════════════════
+#  RUNTIME ARTIFACTS & LOGS
+# ══════════════════════════════════════════════════════════════
+
+# Rate-limit SQLite DB (+ WAL/SHM sidecars) — per-machine state
+rate_limit.db
+rate_limit.db-shm
+rate_limit.db-wal
+*.db-shm
+*.db-wal
+*.sqlite3
+*.sqlite3-journal
+
+# Logs
+*.log
+*.log.*
+logs/
+
+# Crash dumps / temp
+*.dmp
+*.tmp
+*.bak
+
+# ══════════════════════════════════════════════════════════════
+#  LOCAL TOOLING / IDE / OS
+# ══════════════════════════════════════════════════════════════
+.vscode/
+.idea/
+.aidlc/
+.dist/
+.cursor/
+.claude/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ══════════════════════════════════════════════════════════════
+#  DISTRIBUTION ARCHIVES
+# ══════════════════════════════════════════════════════════════
+*.zip
+*.tar.gz
+*.7z
+
+# API trace log - developer/monitoring output, may contain query text and
+# internal hostnames. Never commit; it grows unbounded.
+trace/
+*.jsonl

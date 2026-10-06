@@ -1,0 +1,371 @@
+﻿{
+  "info": {
+    "_postman_id": "b7e1c0de-1111-4a2b-9c3d-sqlopt000001",
+    "name": "SQL Optimizer API",
+    "description": "Postman setup for the SQL Optimizer backend (FastAPI + Gemini via Vertex AI).\n\n1. Start the server: run backend\\run.bat (or run_server_now.ps1).\n2. Import SQL-Optimizer.postman_collection.json and SQL-Optimizer-Local.postman_environment.json.\n3. Select the 'SQL Optimizer - Local' environment and hit the requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Device-ID",
+                "value": "{{device_id}}",
+                "description": "Per-device rate-limit identifier (required for accurate quota buckets)"
+              }
+            ],
+            "url": "{{base_url}}/health",
+            "description": "Liveness + active LLM config (gemini-vertex / model / location / project) and concurrency limits."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agent Optimize (full pipeline)",
+      "item": [
+        {
+          "name": "Optimize Query (agent)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Device-ID",
+                "value": "{{device_id}}",
+                "description": "Per-device rate-limit identifier (required for accurate quota buckets)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/agent_optimize",
+            "description": "MAIN ENDPOINT. Runs the Gemini multi-agent pipeline (issue finder -> planner -> rewriter).\n\nRequired body fields:\n  - query: single SELECT statement (required)\n  - agent_version: int >= 1 (required, else 426 OUTDATED_AGENT)\n\nOptional: custom_request, scope, schema, explain_analyze, innodb_stats.\nSend X-Device-ID header for per-device rate limiting.\n\nSuccess 200: {optimized_query, actions, index_recommendations, summary, error: null, queries_used, queries_remaining}\nErrors: 426 outdated agent | 429 rate limited | 503 LLM rate-limited (retryable) | 504 timeout",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"SELECT id, name FROM customers WHERE country = 'USA' AND status = 'active' ORDER BY name\",\n  \"agent_version\": 1,\n  \"custom_request\": \"\",\n  \"scope\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Optimize Query (throttle-like join)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Device-ID",
+                "value": "{{device_id}}",
+                "description": "Per-device rate-limit identifier (required for accurate quota buckets)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/agent_optimize",
+            "description": "Heavier join/order/limit query \u2014 same shape as backend/throttle_payload.json.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"SELECT id, name, email, created_at FROM customers c LEFT JOIN orders o ON c.id = o.customer_id WHERE c.country = 'USA' AND c.status = 'active' AND o.total > 100 ORDER BY o.created_at DESC LIMIT 100\",\n  \"agent_version\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Optimize (custom request)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Device-ID",
+                "value": "{{device_id}}",
+                "description": "Per-device rate-limit identifier (required for accurate quota buckets)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/agent_optimize",
+            "description": "Passes custom_request so the rewriter honors extra instructions (e.g. avoid index changes).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"SELECT id, name FROM customers WHERE country = 'USA' AND status = 'active' ORDER BY name\",\n  \"agent_version\": 1,\n  \"custom_request\": \"Do not recommend any new indexes; focus on rewriting the query only.\",\n  \"scope\": [\n    \"syntax\",\n    \"rewriting\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "NEGATIVE: write query rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Device-ID",
+                "value": "{{device_id}}",
+                "description": "Per-device rate-limit identifier (required for accurate quota buckets)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/agent_optimize",
+            "description": "Validator only allows a single SELECT \u2014 expect HTTP 200 with error: 'Error: Only SELECT queries are allowed.'",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"DELETE FROM customers WHERE id = 1\",\n  \"agent_version\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "NEGATIVE: missing agent_version",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Device-ID",
+                "value": "{{device_id}}",
+                "description": "Per-device rate-limit identifier (required for accurate quota buckets)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/agent_optimize",
+            "description": "Expect HTTP 426 with {error: 'OUTDATED_AGENT', message: '...update to continue.'}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"SELECT id FROM customers LIMIT 1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Direct DB Connection (R&D)",
+      "item": [
+        {
+          "name": "DB Connection Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Device-ID",
+                "value": "{{device_id}}",
+                "description": "Per-device rate-limit identifier (required for accurate quota buckets)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/db_optimize_test",
+            "description": "NEW R&D endpoint: proves FastAPI -> supplied MySQL (SSL required) -> query execution.\nSet {{db_password}} in the environment first (never hardcode it).\nquery is optional \u2014 omit for a bare SELECT 1 connection test.\nSELECT-only; password is never logged or returned.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"database_config\": {\n    \"host\": \"{{db_host}}\",\n    \"port\": 17027,\n    \"user\": \"{{db_user}}\",\n    \"password\": \"{{db_password}}\",\n    \"database\": \"{{db_name}}\"\n  },\n  \"query\": \"SELECT 1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DB Schema Extract",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Device-ID",
+                "value": "{{device_id}}",
+                "description": "Per-device rate-limit identifier (required for accurate quota buckets)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/db_schema_extract",
+            "description": "R&D Step 1: connects to the supplied MySQL, extracts tables/columns/indexes\nfor the query's tables. Output shape matches what issue_finder_llm expects.\nSet {{db_host}}/{{db_user}}/{{db_password}}/{{db_name}} in the environment.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"database_config\": {\n    \"host\": \"{{db_host}}\",\n    \"port\": 17027,\n    \"user\": \"{{db_user}}\",\n    \"password\": \"{{db_password}}\",\n    \"database\": \"{{db_name}}\"\n  },\n  \"query\": \"SELECT id, name FROM customers WHERE country = 'USA' AND status = 'active'\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    },
+    {
+      "name": "DB Optimize Full",
+      "item": [
+        {
+          "name": "DB Optimize Full",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Device-ID",
+                "value": "{{device_id}}",
+                "description": "Per-device rate-limit identifier (required for accurate quota buckets)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/db_optimize_full",
+            "description": "Full DB-backed optimization using per-request credentials.\nUses the existing issue_finder -> planner -> rewriter pipeline.\nSet DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, and TEST_QUERY in this environment.\nScope: joins, indexes. Custom request: none.\nDoes not modify /optimize or /agent_optimize.\nPassword must not appear in responses or logs.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"database_config\": {\n    \"host\": \"{{DB_HOST}}\",\n    \"port\": {{DB_PORT}},\n    \"user\": \"{{DB_USER}}\",\n    \"password\": \"{{DB_PASSWORD}}\",\n    \"database\": \"{{DB_NAME}}\"\n  },\n  \"query\": \"{{TEST_QUERY}}\",\n  \"scope\": [\"joins\", \"indexes\"],\n  \"custom_request\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DB Optimize Full - Join Query",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Device-ID",
+                "value": "{{device_id}}",
+                "description": "Per-device rate-limit identifier (required for accurate quota buckets)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/db_optimize_full",
+            "description": "Same endpoint with the explicit customers + orders JOIN query embedded in the body.\nUseful for manual testing when TEST_QUERY is not set.\nDB credentials still come from DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"database_config\": {\n    \"host\": \"{{DB_HOST}}\",\n    \"port\": {{DB_PORT}},\n    \"user\": \"{{DB_USER}}\",\n    \"password\": \"{{DB_PASSWORD}}\",\n    \"database\": \"{{DB_NAME}}\"\n  },\n  \"query\": \"SELECT c.name, o.id, o.total_amount, o.status\\nFROM customers c JOIN orders o ON c.id = o.customer_id\\nWHERE c.city = 'Ahmedabad' AND o.status = 'completed'\\nORDER BY o.total_amount DESC;\",\n  \"scope\": [\"joins\", \"indexes\"],\n  \"custom_request\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Syntax-only Optimize",
+      "item": [
+        {
+          "name": "Optimize (syntax only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Device-ID",
+                "value": "{{device_id}}",
+                "description": "Per-device rate-limit identifier (required for accurate quota buckets)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/optimize",
+            "description": "Lighter 2-stage pipeline (syntax planner -> syntax rewriter), no schema/index analysis.\nBody: {query, custom_request (optional)}. Same response shape as /agent_optimize.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"SELECT id, name FROM customers WHERE country = 'USA' AND status = 'active' ORDER BY name\",\n  \"custom_request\": \"Keep it MySQL 8 compatible.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Unique device id per Postman install for rate-limit buckets",
+          "if (!pm.environment.get('device_id')) {",
+          "    pm.environment.set('device_id', 'postman-' + Math.random().toString(36).slice(2, 10));",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Lenient collection-level script: captures fields, never fails negative tests",
+          "if (pm.response.headers.get('Content-Type') && pm.response.headers.get('Content-Type').includes('json')) {",
+          "    const j = pm.response.json();",
+          "    if (j.optimized_query !== undefined) pm.collectionVariables.set('last_optimized_query', j.optimized_query);",
+          "    if (j.error !== undefined) pm.collectionVariables.set('last_error', String(j.error));",
+          "    if (j.queries_remaining !== undefined) pm.environment.set('queries_remaining', String(j.queries_remaining));",
+          "    console.log('status:', pm.response.code, '| error:', j.error, '| remaining:', j.queries_remaining);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "last_optimized_query",
+      "value": ""
+    },
+    {
+      "key": "last_summary",
+      "value": ""
+    }
+  ]
+}

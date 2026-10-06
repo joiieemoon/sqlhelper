@@ -1,0 +1,46 @@
+﻿{
+    "custom_request":  "",
+    "scope":  [
+                  "indexes"
+              ],
+    "schema":  {
+                   "customers":  {
+                                     "row_count":  250000,
+                                     "columns":  [
+                                                     {
+                                                         "name":  "id",
+                                                         "type":  "INT",
+                                                         "nullable":  false
+                                                     },
+                                                     {
+                                                         "name":  "name",
+                                                         "type":  "VARCHAR(100)",
+                                                         "nullable":  false
+                                                     },
+                                                     {
+                                                         "name":  "country",
+                                                         "type":  "VARCHAR(50)",
+                                                         "nullable":  false
+                                                     },
+                                                     {
+                                                         "name":  "status",
+                                                         "type":  "VARCHAR(20)",
+                                                         "nullable":  false
+                                                     }
+                                                 ],
+                                     "indexes":  [
+                                                     {
+                                                         "type":  "BTREE",
+                                                         "cols":  "id",
+                                                         "name":  "PRIMARY",
+                                                         "cardinality":  250000,
+                                                         "unique":  true
+                                                     }
+                                                 ],
+                                     "avg_row_length":  180
+                                 }
+               },
+    "schema_type":  "MySQL",
+    "agent_version":  1,
+    "query":  "SELECT id, name FROM customers WHERE country = \u0027USA\u0027 AND status = \u0027active\u0027"
+}
