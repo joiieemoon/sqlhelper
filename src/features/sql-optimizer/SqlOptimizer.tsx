@@ -6,18 +6,21 @@
 import { Alert } from "../../components/common/alert";
 import PageMeta from "../../components/common/pagemeta/PageMeta";
 import Button from "../../components/ui/button/Button";
-import { BoltIcon } from "../../icons";
+import { BoltIcon, CheckCircleIcon } from "../../icons";
 import DatabaseConfigPanel from "./components/database-config-panel/DatabaseConfigPanel";
 import OptimizationResult from "./components/optimization-result/OptimizationResult";
 import OptimizeForSelector from "./components/optimize-for-selector/OptimizeForSelector";
 import OptimizerHeader from "./components/optimizer-header/OptimizerHeader";
 import SqlQueryEditor from "./components/sql-query-editor/SqlQueryEditor";
+import SopTable from "./components/sop-table";
 import {
   OPTIMIZE_SCOPES,
   OPTIMIZE_SHORTCUT_LABEL,
   QUERY_LIMIT_REACHED_MESSAGE,
 } from "./constants/sql-optimizer.constants";
 import { useSqlOptimizer } from "./hooks/useSqlOptimizer";
+import { useSopVerify } from "../../api/hooks";
+import { SopVerifyRequest } from "../../api/types";
 
 const OptimizeSpinner: React.FC = () => (
   <svg
@@ -70,7 +73,41 @@ export default function SqlOptimizer() {
     runOptimization,
   } = useSqlOptimizer();
 
+  // SOP Verification hook
+  const { mutate: verifySop, isVerifying, sopTableResult, sopError } = useSopVerify();
+
   const showGroundingWarning = result?.grounded === false;
+
+  // Generate SOP verification request from optimization result
+  const generateSopRequest = (): SopVerifyRequest | null => {
+    if (!result?.explain || !result?.explain?.rows) return null;
+
+    const explainOutput: Record<string, any> = {};
+    result.explain.rows?.forEach((row: any, idx: number) => {
+      explainOutput[`row_${idx}`] = row;
+    });
+    if (result.explain.columns) {
+      explainOutput.columns = result.explain.columns;
+    }
+
+    const runtimeData: Record<string, any> = {};
+    if (result.elapsed_ms) runtimeData.median = result.elapsed_ms;
+    if (result.elapsed_ms) runtimeData.target = 100;
+
+    return {
+      explain_output: explainOutput,
+      runtime_data: runtimeData,
+      validation_data: {
+        is_correct: true,
+      },
+    };
+  };
+
+  const handleVerifySop = () => {
+    const request = generateSopRequest();
+    if (!request) return;
+    verifySop(request);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -169,6 +206,38 @@ export default function SqlOptimizer() {
                 description={result.schema_warnings.join(" ")}
                 closable
               />
+            )}
+
+            {/* SOP Verification Section */}
+            {result && !isOptimizing && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-medium text-gray-800 dark:text-white/90">
+                    Traffic-Light Review
+                  </h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    startIcon={isVerifying ? <OptimizeSpinner /> : <CheckCircleIcon />}
+                    onClick={handleVerifySop}
+                    disabled={isVerifying}
+                    className="text-xs"
+                  >
+                    Verify Plan
+                  </Button>
+                </div>
+
+                {sopError && (
+                  <Alert
+                    variant="error"
+                    title="Verification failed"
+                    description={sopError}
+                    closable
+                  />
+                )}
+
+                <SopTable result={sopTableResult} isLoading={isVerifying} error={sopError} />
+              </div>
             )}
 
             {result && <OptimizationResult result={result} />}

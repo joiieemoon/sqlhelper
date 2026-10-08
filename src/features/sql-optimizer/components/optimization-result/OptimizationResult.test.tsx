@@ -131,8 +131,14 @@ describe("OptimizationResult — Report", () => {
     expect(html).toContain("mysql");
     expect(html).toContain("Database");
     expect(html).toContain("Chinook");
-    expect(html).toContain("1m 38s");
     expect(html).toContain("Query changed");
+  });
+
+  it("omits the run duration", () => {
+    // Duration was dropped from the Report on purpose — a multi-minute
+    // pipeline time is noise next to what actually changed.
+    expect(html).not.toContain("Duration");
+    expect(html).not.toContain("1m 38s");
   });
 
   it("shows the action outcome counts", () => {
@@ -143,6 +149,61 @@ describe("OptimizationResult — Report", () => {
   it("renders the EXPLAIN plan preserving its indentation", () => {
     expect(html).toContain("EXPLAIN plan (original query)");
     expect(html).toContain("-&gt; Sort: TotalLines DESC\n    -&gt; Table scan");
+  });
+
+  it("omits the after-plan block entirely when no optimized plan exists", () => {
+    // LIVE_RESULT carries only the original plan, so there is no after-plan
+    // heading and no summary caption to show at all.
+    expect(html).not.toContain("EXPLAIN plan (optimized query)");
+    expect(html).not.toContain(
+      "Plan the database runs for the optimized query above.",
+    );
+  });
+
+  describe("with an optimized-plan summary", () => {
+    const summarized = render({
+      ...LIVE_RESULT,
+      explain_optimized: {
+        rows: [{ EXPLAIN: "-> Aggregate  (actual time=0.9..1.2 rows=100)" }],
+        columns: ["EXPLAIN"],
+      },
+      explain_optimized_summary: {
+        summary: "Aggregates 100 tracks before the cross join.",
+        key_points: ["Materialize eliminated", "Sort over 100 rows"],
+      },
+    });
+
+    it("shows the after-plan heading", () => {
+      expect(summarized).toContain("EXPLAIN plan (optimized query)");
+    });
+
+    it("shows the plain-English summary and its key points", () => {
+      expect(summarized).toContain("Aggregates 100 tracks before the cross");
+      expect(summarized).toContain("Materialize eliminated");
+      expect(summarized).toContain("Sort over 100 rows");
+    });
+
+    it("drops the placeholder caption once a summary exists", () => {
+      expect(summarized).not.toContain(
+        "Plan the database runs for the optimized query above.",
+      );
+    });
+  });
+
+  it("keeps the placeholder caption when the plan has no summary", () => {
+    // Best-effort stage: a plan without a summary still renders the plan, and
+    // keeps the original caption instead of leaving a blank card.
+    const planOnly = render({
+      ...LIVE_RESULT,
+      explain_optimized: {
+        rows: [{ EXPLAIN: "-> Aggregate  (actual time=0.9..1.2 rows=100)" }],
+        columns: ["EXPLAIN"],
+      },
+    });
+    expect(planOnly).toContain("EXPLAIN plan (optimized query)");
+    expect(planOnly).toContain(
+      "Plan the database runs for the optimized query above.",
+    );
   });
 
   it("explains itself when the API returned no report data", () => {

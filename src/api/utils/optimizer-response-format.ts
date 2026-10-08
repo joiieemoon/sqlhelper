@@ -7,6 +7,7 @@ import type {
   OptimizerAction,
   OptimizerExplain,
   OptimizerExplainRow,
+  OptimizerExplainSummary,
 } from "../types/sql-optimizer.types";
 
 /** Trims a value only when it is a non-empty string. */
@@ -171,6 +172,35 @@ export function coerceOptimizerActionList(items: unknown): OptimizerAction[] {
     }
   }
   return actions;
+}
+
+/**
+ * Normalizes the backend's plain-English plan summary.
+ *
+ * The summarizer stage is best-effort, so the field may be missing, null, or
+ * malformed. Anything without usable `summary` text collapses to undefined so
+ * the report simply omits the block instead of rendering an empty shell.
+ */
+export function coerceOptimizerExplainSummary(
+  value: unknown,
+): OptimizerExplainSummary | undefined {
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+
+  const summary = asTrimmedString(record.summary);
+  if (!summary) {
+    return undefined;
+  }
+
+  const rawPoints = record.key_points;
+  const keyPoints = Array.isArray(rawPoints) ? asStringArray(rawPoints) : [];
+
+  return {
+    summary,
+    key_points: keyPoints.length > 0 ? keyPoints : undefined,
+  };
 }
 
 /**

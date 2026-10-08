@@ -25,6 +25,11 @@ export const SQL_OPTIMIZER_ENDPOINTS = {
     method: HttpMethod.POST,
     requiresAuth: false,
   } as const,
+  SOP_VERIFY: {
+    path: "/api/sop-verify",
+    method: HttpMethod.POST,
+    requiresAuth: false,
+  } as const,
 } as const;
 
 export type SqlOptimizerEndpoint =

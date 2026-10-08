@@ -33,16 +33,31 @@ function formatResetTime(isoOrDate: string): string {
   return isoOrDate;
 }
 
+/**
+ * Turns the usage payload into the header line.
+ *
+ * The API reports whatever RATE_LIMIT_MAX the server booted with, and that is
+ * deliberately raised for local/test runs (the backend default of 5 is
+ * overridden by that env var). Displaying the raw server figure leaks a dev
+ * artifact into the UI — "99996 of 100000 remaining today" is meaningless to
+ * anyone reading the product.
+ *
+ * So the header always reports the product allowance (QUERY_LIMIT) and counts
+ * down within it. A server limit STRICTER than the product allowance is still
+ * honoured, so a reduced or trial quota reports truthfully instead of being
+ * rounded up.
+ */
 function formatUsage(usage: SqlQueryUsage | null): string {
   if (!usage) {
     return `Up to ${QUERY_LIMIT} queries per day`;
   }
 
+  const serverLimit =
+    usage.limit ?? usage.queriesUsed + usage.queriesRemaining;
   const limit =
-    usage.limit ??
-    (usage.queriesUsed + usage.queriesRemaining > 0
-      ? usage.queriesUsed + usage.queriesRemaining
-      : QUERY_LIMIT);
+    serverLimit > 0 && serverLimit < QUERY_LIMIT ? serverLimit : QUERY_LIMIT;
+  // Never claim more than the reported allowance is left.
+  const remaining = Math.max(0, Math.min(usage.queriesRemaining, limit));
 
   let resetHint = "";
   if (typeof usage.resetsIn === "number" && usage.resetsIn > 0) {
@@ -51,7 +66,7 @@ function formatUsage(usage: SqlQueryUsage | null): string {
     resetHint = ` · resets ${formatResetTime(usage.resetTime)}`;
   }
 
-  return `${usage.queriesRemaining} of ${limit} remaining today${resetHint}`;
+  return `${remaining} of ${limit} remaining today${resetHint}`;
 }
 
 const OptimizerHeader: React.FC<OptimizerHeaderProps> = ({ usage }) => {

@@ -23,6 +23,7 @@ import {
   coerceOptimizerActionList,
   coerceOptimizerDisplayList,
   coerceOptimizerExplain,
+  coerceOptimizerExplainSummary,
 } from "../utils/optimizer-response-format";
 
 const DEVICE_ID_STORAGE_KEY = "sql-optimizer-device-id";
@@ -173,6 +174,10 @@ function normalizeOptimizeResponse(
   // / DDL, which the flattened "TYPE: reason" form discards.
   const actionDetails = coerceOptimizerActionList(data.actions);
   const explain = coerceOptimizerExplain(data.explain);
+  const explainOptimized = coerceOptimizerExplain(data.explain_optimized);
+  const explainOptimizedSummary = coerceOptimizerExplainSummary(
+    data.explain_optimized_summary,
+  );
   const appliedActions = Array.isArray(data.applied_actions)
     ? data.applied_actions.filter((id): id is number => typeof id === "number")
     : undefined;
@@ -227,6 +232,8 @@ function normalizeOptimizeResponse(
     query_changed:
       typeof data.query_changed === "boolean" ? data.query_changed : undefined,
     explain,
+    explain_optimized: explainOptimized,
+    explain_optimized_summary: explainOptimizedSummary,
     applied_actions: appliedActions,
     rewrite_actions: rewriteActions,
     no_op_actions: noOpActions,
@@ -247,6 +254,32 @@ function optimizerRequestConfig(timeoutMs: number) {
   };
 }
 
+/**
+ * Explains why a request never produced a response body.
+ *
+ * A dropped connection and a genuine optimization failure look identical if
+ * both collapse into one generic sentence — which is exactly how a dev tunnel
+ * silently killing a two-minute /db_optimize_full surfaced as "Unable to
+ * optimize the query". Tell the two apart so the user knows whether to wait,
+ * retry, or check that the backend is even running.
+ */
+function describeTransportFailure(error: AxiosError, fallback: string): string {
+  if (error.code === "ECONNABORTED" || /timeout/i.test(error.message ?? "")) {
+    const seconds = Math.round((error.config?.timeout ?? 0) / 1000);
+    return seconds > 0
+      ? `The optimizer did not respond within ${seconds}s. The full analysis can take several minutes — wait for the backend log to finish, then retry.`
+      : "The optimizer request timed out. The full analysis can take several minutes — retry once it has finished.";
+  }
+
+  // No response at all: the request never reached the server, or the
+  // connection was cut mid-flight (proxy/tunnel/VPN timeouts land here).
+  if (!error.response) {
+    return `Could not reach the optimizer API at ${error.config?.baseURL ?? "the configured host"}. Check that the backend is running and that nothing between the browser and it cuts long requests.`;
+  }
+
+  return fallback;
+}
+
 function throwFromAxios(error: unknown, fallback: string): never {
   if (error instanceof OptimizerRequestError) {
     throw error;
@@ -257,7 +290,7 @@ function throwFromAxios(error: unknown, fallback: string): never {
   const failure = parseFailureFromData(
     axiosError.response?.data,
     status,
-    fallback,
+    describeTransportFailure(axiosError, fallback),
   );
   throw new OptimizerRequestError(failure);
 }

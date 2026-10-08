@@ -95,10 +95,20 @@ export interface OptimizerExplainRow {
   EXPLAIN?: string;
 }
 
-/** Raw EXPLAIN block for the ORIGINAL query (there is no after-plan yet). */
+/** Raw EXPLAIN block for one query — the original, or the rewritten one. */
 export interface OptimizerExplain {
   rows?: OptimizerExplainRow[];
   columns?: string[];
+}
+
+/**
+ * Plain-English description of the OPTIMIZED query's execution plan, written
+ * by the backend summarizer stage. Present only when the optimizer changed the
+ * SQL and the engine could plan the result.
+ */
+export interface OptimizerExplainSummary {
+  summary?: string;
+  key_points?: string[];
 }
 
 /**
@@ -133,6 +143,14 @@ export interface OptimizeQueryResponse {
   database?: string;
   query_changed?: boolean;
   explain?: OptimizerExplain;
+  /**
+   * EXPLAIN ANALYZE of the REWRITTEN query, returned only when the optimizer
+   * actually changed the SQL and the engine could plan it. Absent when there is
+   * nothing to compare against, or when the rewritten statement was rejected.
+   */
+  explain_optimized?: OptimizerExplain;
+  /** Plain-English description of the optimized query's plan. */
+  explain_optimized_summary?: OptimizerExplainSummary;
   /** Action ids by disposition — applied / rewritten / no-op / skipped. */
   applied_actions?: number[];
   rewrite_actions?: number[];
@@ -162,4 +180,23 @@ export class OptimizerRequestError extends Error {
     this.name = "OptimizerRequestError";
     this.failure = failure;
   }
+}
+
+/**
+ * Traffic-Light Review Table SOP verification request.
+ */
+export interface SopVerifyRequest {
+  explain_output: Record<string, any>;
+  runtime_data?: Record<string, any>;
+  validation_data?: Record<string, any>;
+}
+
+/**
+ * Traffic-Light Review Table SOP verification response.
+ */
+export interface SopVerifyResponse {
+  success: boolean;
+  table?: string;
+  summary?: string;
+  error?: string;
 }

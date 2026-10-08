@@ -12,3 +12,4 @@ export * from "./useUsers";
 export * from "./useOptimizeSqlQuery";
 export * from "./useTestDbConnection";
 export * from "./useSqlOptimizerUsage";
+export * from "./useSopVerify";

@@ -20,6 +20,7 @@ import { CopyIcon } from "../../../../icons";
 import { copyToClipboard } from "../../../../utils/helpers";
 import type { OptimizeQueryResponse } from "../../../../api/types";
 import ActionAnalysisList from "./ActionAnalysisList";
+import AnalysisClaims from "./AnalysisClaims";
 import OptimizationReport from "./OptimizationReport";
 
 const NO_CHANGES_MESSAGE =
@@ -75,7 +76,11 @@ const OptimizationResult: React.FC<OptimizationResultProps> = ({ result }) => {
         {result.summary.length > 0 ? (
           <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
             {result.summary.map((item, index) => (
-              <li key={`summary-${index}`}>{item}</li>
+              // Each summary string can itself be a run-on paragraph, so it
+              // is split into per-claim bullets inside the item.
+              <li key={`summary-${index}`}>
+                <AnalysisClaims text={item} bulletFallback />
+              </li>
             ))}
           </ul>
         ) : (

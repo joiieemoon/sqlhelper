@@ -16,7 +16,7 @@ export const API_CONFIG = {
   /** Query optimizer API host (different host from the main API). */
   sqlOptimizerBaseUrl:
     import.meta.env.VITE_SQL_OPTIMIZER_API_BASE_URL ||
-    "https://nv8vvk50-8000.inc1.devtunnels.ms",
+    "http://localhost:8000",
   /** POST /db_optimize_full — override with VITE_SQL_OPTIMIZER_TIMEOUT_MS. */
   sqlOptimizerTimeoutMs: parsePositiveIntEnv(
     import.meta.env.VITE_SQL_OPTIMIZER_TIMEOUT_MS,
